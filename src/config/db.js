@@ -2,16 +2,12 @@ const mongoose = require("mongoose");
 
 const connectDB = async () => {
   try {
-    const mongoURI =
-      process.env.MONGODB_URI || "mongodb://localhost:27017/PRM_DB";
-
-    await mongoose.connect(mongoURI);
-
-    console.log("MongoDB connected successfully");
-    return mongoose.connection;
+    const conn = await mongoose.connect(process.env.MONGODB_URI);
+    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
+    console.log("✅ Database Name: PRM393_DB");
   } catch (error) {
-    console.error("MongoDB connection error:", error.message);
-    process.exit(1);
+    console.error(`❌ Error: ${error.message}`);
+    process.exit(1); // Thoát chương trình nếu lỗi kết nối
   }
 };
 
