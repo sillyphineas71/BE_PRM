@@ -28,6 +28,7 @@ exports.getProfile = async (req, res) => {
     res.status(200).json({
       full_name: user.full_name,
       email: user.email,
+      currency: user.currency,
       monthly_income: user.monthly_income || "",
       pay_day: user.pay_day || "",
     });
@@ -37,14 +38,49 @@ exports.getProfile = async (req, res) => {
 };
 exports.updateProfile = async (req, res) => {
   try {
-    // Tìm và cập nhật full_name dựa trên req.user.id từ middleware
-    const updatedUser = await User.findByIdAndUpdate(
-      req.user.id,
-      { full_name: req.body.full_name, updated_at: Date.now() },
-      { new: true }, // Trả về dữ liệu mới sau khi sửa
-    ).select("-password_hash");
+    const updateData = { updated_at: Date.now() };
+    if (req.body.full_name !== undefined) {
+      updateData.full_name = req.body.full_name;
+    }
+    if (req.body.monthly_income !== undefined) {
+      updateData.monthly_income = req.body.monthly_income;
+    }
+    if (req.body.pay_day !== undefined) {
+      updateData.pay_day = req.body.pay_day;
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(req.user.id, updateData, {
+      new: true,
+    }).select("-password_hash");
 
     res.status(200).json(updatedUser);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Cập nhật currency (khi người dùng chọn ngôn ngữ)
+exports.updateCurrency = async (req, res) => {
+  try {
+    const { currency } = req.body;
+
+    if (!currency || !["VND", "USD"].includes(currency)) {
+      return res.status(400).json({
+        message: "Invalid currency. Must be VND or USD",
+      });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      { currency: currency, updated_at: Date.now() },
+      { new: true },
+    ).select("-password_hash");
+
+    res.status(200).json({
+      success: true,
+      message: "Currency updated successfully",
+      data: updatedUser,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
