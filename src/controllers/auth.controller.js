@@ -28,32 +28,10 @@ exports.getProfile = async (req, res) => {
     res.status(200).json({
       full_name: user.full_name,
       email: user.email,
-      currency: user.currency,
       monthly_income: user.monthly_income || "",
       pay_day: user.pay_day || "",
+      jars: user.jars || {},
     });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-exports.updateProfile = async (req, res) => {
-  try {
-    const updateData = { updated_at: Date.now() };
-    if (req.body.full_name !== undefined) {
-      updateData.full_name = req.body.full_name;
-    }
-    if (req.body.monthly_income !== undefined) {
-      updateData.monthly_income = req.body.monthly_income;
-    }
-    if (req.body.pay_day !== undefined) {
-      updateData.pay_day = req.body.pay_day;
-    }
-
-    const updatedUser = await User.findByIdAndUpdate(req.user.id, updateData, {
-      new: true,
-    }).select("-password_hash");
-
-    res.status(200).json(updatedUser);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -81,6 +59,41 @@ exports.updateCurrency = async (req, res) => {
       message: "Currency updated successfully",
       data: updatedUser,
     });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+exports.updateProfile = async (req, res) => {
+  try {
+    const updateData = { updated_at: Date.now() };
+    if (req.body.full_name !== undefined)
+      updateData.full_name = req.body.full_name;
+    if (req.body.monthly_income !== undefined) {
+      updateData.monthly_income = parseInt(req.body.monthly_income, 10);
+      if (isNaN(updateData.monthly_income)) updateData.monthly_income = 0;
+    }
+    if (req.body.pay_day !== undefined) {
+      updateData.pay_day = parseInt(req.body.pay_day, 10);
+      if (isNaN(updateData.pay_day)) updateData.pay_day = 1;
+    }
+    if (req.body.jars !== undefined) {
+      updateData.jars = req.body.jars;
+    }
+
+    // Tìm và cập nhật dựa trên req.user.id từ middleware
+    const updatedUser = await User.findByIdAndUpdate(req.user.id, updateData, {
+      returnDocument: "after",
+    }).select("-password_hash");
+    res.status(200).json(updatedUser);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find().select("-password_hash");
+    res.status(200).json(users);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

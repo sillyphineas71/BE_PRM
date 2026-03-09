@@ -19,13 +19,14 @@ const register = async (userData) => {
 const login = async (email, password) => {
   const user = await User.findOne({ email });
   if (!user) throw new Error("401");
-
   const isMatch = await bcrypt.compare(password, user.password_hash);
   if (!isMatch) throw new Error("401");
 
-  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-    expiresIn: "7d",
-  });
+  const token = jwt.sign(
+    { id: user._id, role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: "7d" },
+  );
   return { token, user };
 };
 
