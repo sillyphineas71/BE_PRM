@@ -7,8 +7,8 @@ const userSchema = new mongoose.Schema({
   role: { type: String, enum: ["user", "admin"], default: "user" },
   avatar_url: { type: String, default: "" },
   currency: { type: String, default: "VND" },
-  monthly_income: { type: Number, default: null },
-  pay_day: { type: Number, default: null },
+  monthly_income: { type: Number },
+  pay_day: { type: Number },
   jars: {
     type: Map,
     of: Number,
