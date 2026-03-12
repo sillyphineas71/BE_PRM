@@ -7,8 +7,8 @@ const userSchema = new mongoose.Schema({
   role: { type: String, enum: ["user", "admin"], default: "user" },
   avatar_url: { type: String, default: "" },
   currency: { type: String, default: "VND" },
-  monthly_income: { type: Number },
-  // pay_day: { type: Number },
+  monthly_income: { type: Number, default: null },
+  pay_day: { type: Number, default: null },
   jars: {
     type: Map,
     of: Number,
@@ -21,10 +21,6 @@ const userSchema = new mongoose.Schema({
       "Cho đi": 5,
     },
   },
-  avatar_url: { type: String, default: "" },
-  // currency: { type: String, default: "" },
-  monthly_income: { type: Number, default: null },
-  pay_day: { type: Number, default: null },
   created_at: { type: Date, default: Date.now },
   updated_at: { type: Date, default: Date.now },
 });

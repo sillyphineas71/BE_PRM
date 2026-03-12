@@ -26,7 +26,6 @@ exports.login = async (req, res) => {
 exports.getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select("-password_hash");
-
     res.status(200).json({
       full_name: user.full_name,
       email: user.email,

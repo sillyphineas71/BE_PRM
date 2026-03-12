@@ -8,6 +8,7 @@ router.post("/register", authController.register);
 router.post("/login", authController.login);
 router.get("/users/me", authMiddleware, authController.getProfile);
 router.put("/users/me", authMiddleware, authController.updateProfile);
+router.put("/users/me/currency", authMiddleware, authController.updateCurrency);
 
 // Route Test Phân quyền (Chỉ admin mới được lấy danh sách tất cả user)
 router.get(
@@ -16,6 +17,5 @@ router.get(
   authorizeRoles("admin"),
   authController.getAllUsers,
 );
-router.put("/users/me/currency", authMiddleware, authController.updateCurrency);
 
 module.exports = router;
