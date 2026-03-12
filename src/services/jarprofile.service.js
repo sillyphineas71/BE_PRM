@@ -135,10 +135,30 @@ const getUserProfiles = async (userId) => {
   }
 };
 
+// Lấy danh sách jar từ active profile (cho dropdown UC-09)
+const getJarList = async (userId) => {
+  try {
+    const activeProfile = await JarProfile.findOne({ user_id: userId, is_active: true });
+    if (!activeProfile) {
+      throw new Error("NO_ACTIVE_PROFILE");
+    }
+    return activeProfile.jars.map((jar) => ({
+      jar_key: jar.name,
+      name: jar.name,
+      icon: jar.icon,
+      color: jar.color,
+      percent: jar.percent,
+    }));
+  } catch (error) {
+    throw new Error(error.message);
+  }
+};
+
 module.exports = {
   createJarProfile,
   updateJarPercentages,
   activateJarProfile,
   getActiveProfile,
   getUserProfiles,
+  getJarList,
 };

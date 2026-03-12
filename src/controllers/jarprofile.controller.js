@@ -133,3 +133,27 @@ exports.getUserProfiles = async (req, res) => {
         });
     }
 };
+
+// Lấy danh sách jar cho dropdown (UC-09)
+exports.getJarList = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const jars = await jarProfileService.getJarList(userId);
+
+        res.status(200).json({
+            success: true,
+            data: jars
+        });
+    } catch (error) {
+        if (error.message === 'NO_ACTIVE_PROFILE') {
+            return res.status(404).json({
+                success: false,
+                message: "No active jar profile found. Please activate a profile first."
+            });
+        }
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
