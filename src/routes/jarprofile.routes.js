@@ -21,4 +21,7 @@ router.put('/:profileId', jarProfileController.updateJarPercentages);
 // UC-06: Kích hoạt jar profile
 router.put('/:profileId/activate', jarProfileController.activateJarProfile);
 
+// Lấy danh sách jar cho dropdown (UC-09)
+router.get('/jars', jarProfileController.getJarList);
+
 module.exports = router;
