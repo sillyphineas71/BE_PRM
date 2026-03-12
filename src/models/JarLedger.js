@@ -5,7 +5,7 @@ const jarLedgerSchema = new mongoose.Schema({
   jar_key: { type: String, required: true },
   delta: { type: Number, required: true },
   
-  ref_type: { type: String, enum: ["INCOME_EVENT", "TRANSACTION"], required: true },
+  ref_type: { type: String, enum: ["IncomeEvent", "Transaction"], required: true },
   ref_id: { type: mongoose.Schema.Types.ObjectId, required: true, refPath: "ref_type" },
   
   occurred_at: { type: Date, required: true },
