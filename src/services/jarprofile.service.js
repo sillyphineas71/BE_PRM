@@ -1,4 +1,7 @@
 const JarProfile = require("../models/JarProfile");
+const IncomeEvent = require("../models/IncomeEvent");
+const JarLedger = require("../models/JarLedger");
+const { rebuildSnapshot } = require("./snapshot.service");
 
 // 6 lọ mặc định
 const DEFAULT_JARS = [
@@ -82,6 +85,100 @@ const updateJarPercentages = async (profileId, jarsData) => {
       },
       { new: true },
     );
+
+    if (!updatedProfile) {
+      throw new Error("PROFILE_NOT_FOUND");
+    }
+
+    // ── Tính lại phân bổ cho TẤT CẢ income đã ghi nhận với profile này ──
+    const incomeEvents = await IncomeEvent.find({ jar_profile_id: profileId });
+
+    if (incomeEvents.length === 0) {
+      return updatedProfile;
+    }
+
+    // Build bảng % mới (key = jar name)
+    const newPercentMap = {};
+    for (const jar of updatedProfile.jars) {
+      newPercentMap[jar.name] = jar.percent;
+    }
+
+    // Xóa toàn bộ JarLedger cũ từ các income events này (bulk)
+    const incomeEventIds = incomeEvents.map((ie) => ie._id);
+    await JarLedger.deleteMany({
+      ref_type: "IncomeEvent",
+      ref_id: { $in: incomeEventIds },
+    });
+
+    // Tính lại allocations + tạo JarLedger mới
+    const allNewLedgers = [];
+    const affectedMonths = new Set();
+
+    for (const incomeEvent of incomeEvents) {
+      const totalAmount = incomeEvent.amount;
+      let remainingAmount = totalAmount;
+      let maxPercentJarName = null;
+      let maxPercent = -1;
+
+      const newAllocations = updatedProfile.jars.map((jar) => {
+        const percent = newPercentMap[jar.name] || 0;
+        const allocatedAmount = Math.floor((totalAmount * percent) / 100);
+        remainingAmount -= allocatedAmount;
+
+        if (percent > maxPercent) {
+          maxPercent = percent;
+          maxPercentJarName = jar.name;
+        }
+
+        return {
+          jar_key: jar.name,
+          percent: percent,
+          amount: allocatedAmount,
+        };
+      });
+
+      // Chênh lệch làm tròn → cộng vào lọ % cao nhất
+      if (remainingAmount !== 0 && newAllocations.length > 0) {
+        const maxJarAlloc = newAllocations.find(
+          (a) => a.jar_key === maxPercentJarName
+        );
+        if (maxJarAlloc) maxJarAlloc.amount += remainingAmount;
+      }
+
+      // Cập nhật allocations trên IncomeEvent
+      incomeEvent.allocations = newAllocations;
+      await incomeEvent.save();
+
+      // Chuẩn bị JarLedger entries mới
+      for (const allocation of newAllocations) {
+        if (allocation.amount !== 0) {
+          allNewLedgers.push({
+            user_id: incomeEvent.user_id,
+            jar_key: allocation.jar_key,
+            delta: allocation.amount,
+            ref_type: "IncomeEvent",
+            ref_id: incomeEvent._id,
+            occurred_at: incomeEvent.received_at,
+          });
+        }
+      }
+
+      // Track tháng bị ảnh hưởng để rebuild snapshot
+      const d = new Date(incomeEvent.received_at);
+      const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      affectedMonths.add(monthStr);
+    }
+
+    // Insert tất cả ledger mới (bulk)
+    if (allNewLedgers.length > 0) {
+      await JarLedger.insertMany(allNewLedgers);
+    }
+
+    // Rebuild snapshots cho tất cả tháng bị ảnh hưởng
+    const userId = updatedProfile.user_id;
+    for (const month of affectedMonths) {
+      await rebuildSnapshot(userId, month);
+    }
 
     return updatedProfile;
   } catch (error) {

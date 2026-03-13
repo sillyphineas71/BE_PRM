@@ -1,69 +1,6 @@
 const Transaction = require("../models/Transaction");
 const JarLedger = require("../models/JarLedger");
-const MonthlySnapshot = require("../models/MonthlySnapshot");
-
-// ─── Helper: lấy month string "YYYY-MM" từ Date ───
-const getMonth = (date) => {
-  const d = new Date(date);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  return `${yyyy}-${mm}`;
-};
-
-// ─── Helper: rebuild snapshot cho 1 tháng (Member 5 integration) ───
-const rebuildSnapshot = async (userId, month) => {
-  // Tính date range cho tháng
-  const [year, mon] = month.split("-").map(Number);
-  const startOfMonth = new Date(year, mon - 1, 1);
-  const endOfMonth = new Date(year, mon, 0, 23, 59, 59, 999);
-
-  // Lấy tất cả ledger entries trong tháng
-  const ledgers = await JarLedger.find({
-    user_id: userId,
-    occurred_at: { $gte: startOfMonth, $lte: endOfMonth },
-  });
-
-  // Group by jar_key
-  const jarMap = {};
-  let totalIncome = 0;
-  let totalExpense = 0;
-
-  for (const ledger of ledgers) {
-    if (!jarMap[ledger.jar_key]) {
-      jarMap[ledger.jar_key] = { income: 0, expense: 0, end_balance: 0 };
-    }
-
-    if (ledger.delta > 0) {
-      jarMap[ledger.jar_key].income += ledger.delta;
-      totalIncome += ledger.delta;
-    } else {
-      jarMap[ledger.jar_key].expense += Math.abs(ledger.delta);
-      totalExpense += Math.abs(ledger.delta);
-    }
-    jarMap[ledger.jar_key].end_balance += ledger.delta;
-  }
-
-  const byJar = Object.entries(jarMap).map(([jar_key, data]) => ({
-    jar_key,
-    income: data.income,
-    expense: data.expense,
-    end_balance: data.end_balance,
-  }));
-
-  // Upsert snapshot
-  await MonthlySnapshot.findOneAndUpdate(
-    { user_id: userId, month },
-    {
-      user_id: userId,
-      month,
-      total_income: totalIncome,
-      total_expense: totalExpense,
-      by_jar: byJar,
-      updated_at: Date.now(),
-    },
-    { upsert: true, new: true }
-  );
-};
+const { rebuildSnapshot, getMonth } = require("./snapshot.service");
 
 // ═══════════════════════════════════════════════════
 // UC-09: Thêm chi tiêu (Create Expense)
@@ -94,7 +31,7 @@ const createExpense = async (userId, data) => {
     user_id: userId,
     jar_key,
     delta: -amount,
-    ref_type: "TRANSACTION",
+    ref_type: "Transaction",
     ref_id: transaction._id,
     occurred_at: new Date(occurred_at),
   });
@@ -139,14 +76,14 @@ const updateExpense = async (userId, transactionId, updateData) => {
   await transaction.save();
 
   // 4. Xóa ledger cũ theo ref_id
-  await JarLedger.deleteMany({ ref_id: transactionId, ref_type: "TRANSACTION" });
+  await JarLedger.deleteMany({ ref_id: transactionId, ref_type: "Transaction" });
 
   // 5. Tạo ledger mới
   await JarLedger.create({
     user_id: userId,
     jar_key: transaction.jar_key,
     delta: -transaction.amount,
-    ref_type: "TRANSACTION",
+    ref_type: "Transaction",
     ref_id: transaction._id,
     occurred_at: transaction.occurred_at,
   });
@@ -178,7 +115,7 @@ const deleteExpense = async (userId, transactionId) => {
   const month = getMonth(transaction.occurred_at);
 
   // 2. Xóa ledger theo ref_id
-  await JarLedger.deleteMany({ ref_id: transactionId, ref_type: "TRANSACTION" });
+  await JarLedger.deleteMany({ ref_id: transactionId, ref_type: "Transaction" });
 
   // 3. Xóa transaction
   await Transaction.deleteOne({ _id: transactionId });
@@ -221,7 +158,7 @@ const createTransfer = async (userId, data) => {
       user_id: userId,
       jar_key: from_jar_key,
       delta: -amount,
-      ref_type: "TRANSACTION",
+      ref_type: "Transaction",
       ref_id: transaction._id,
       occurred_at: new Date(occurred_at),
     },
@@ -229,7 +166,7 @@ const createTransfer = async (userId, data) => {
       user_id: userId,
       jar_key: to_jar_key,
       delta: amount,
-      ref_type: "TRANSACTION",
+      ref_type: "Transaction",
       ref_id: transaction._id,
       occurred_at: new Date(occurred_at),
     },
@@ -282,5 +219,4 @@ module.exports = {
   deleteExpense,
   createTransfer,
   getTransactions,
-  rebuildSnapshot,
 };
